@@ -1,0 +1,58 @@
+# Voight GPU agent image for Nosana
+#
+# One container = one autonomous agent with its own local model:
+#   - Ollama serves an OpenAI-compatible endpoint on 127.0.0.1:11434 (GPU)
+#   - the Hermes runtime (github.com/NousResearch/hermes-agent, MIT) drives the
+#     agent loop and exposes its gateway API on :8642 — the only exposed port
+#   - inference never leaves the container: no inference API key exists inside
+#
+# Build:            docker build -t voight-gpu-agent image/
+# Build with baked  docker build --build-arg BAKE_MODEL=qwen3:8b \
+# model weights:      -t voight-gpu-agent:qwen3-8b image/
+#
+# A baked model turns the ~3 min pull-at-boot into node-local Docker layer
+# cache: every restart on a warm node skips the download entirely.
+
+FROM ollama/ollama:latest
+
+# uv manages its own CPython (Hermes needs >=3.11); the Ollama base stays as-is.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    ca-certificates curl git ripgrep procps && \
+    rm -rf /var/lib/apt/lists/*
+
+# Hermes runtime in its own venv, pinned to a commit for reproducible builds.
+ARG HERMES_REF=main
+RUN git clone --depth 1 --branch "${HERMES_REF}" \
+      https://github.com/NousResearch/hermes-agent /opt/hermes/src && \
+    uv venv /opt/hermes/.venv --python 3.12 && \
+    VIRTUAL_ENV=/opt/hermes/.venv uv pip install /opt/hermes/src ddgs && \
+    rm -rf /opt/hermes/src/.git
+
+# Optionally bake model weights into the image (empty = pull at first boot).
+ARG BAKE_MODEL=""
+RUN if [ -n "${BAKE_MODEL}" ]; then \
+      ollama serve & OLLAMA_PID=$!; \
+      sleep 3 && ollama pull "${BAKE_MODEL}" && kill "${OLLAMA_PID}"; \
+    fi
+
+COPY start.sh /start.sh
+COPY memory-sync.sh /usr/local/bin/memory-sync
+RUN chmod +x /start.sh /usr/local/bin/memory-sync
+
+# Agent state lives under /opt/data (config.yaml, SOUL.md, memories/).
+ENV HOME=/opt/data \
+    HERMES_HOME=/opt/data \
+    API_SERVER_HOST=0.0.0.0 \
+    API_SERVER_PORT=8642 \
+    GATEWAY_ALLOW_ALL_USERS=true \
+    HERMES_ALLOW_ROOT_GATEWAY=1 \
+    MODEL=qwen3:8b \
+    PYTHONUNBUFFERED=1
+
+# Only the agent gateway is exposed; Ollama stays loopback-only.
+EXPOSE 8642
+
+ENTRYPOINT ["/start.sh"]
