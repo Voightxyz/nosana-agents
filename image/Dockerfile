@@ -23,12 +23,15 @@ RUN apt-get update && \
     ca-certificates curl git ripgrep procps && \
     rm -rf /var/lib/apt/lists/*
 
-# Hermes runtime in its own venv, pinned to a commit for reproducible builds.
+# Hermes runtime in its own venv. Its build backend rejects a plain
+# `pip install .` — `uv sync` against the upstream lockfile is the supported
+# (and reproducible) path; the editable install needs the source kept around.
 ARG HERMES_REF=main
 RUN git clone --depth 1 --branch "${HERMES_REF}" \
       https://github.com/NousResearch/hermes-agent /opt/hermes/src && \
-    uv venv /opt/hermes/.venv --python 3.12 && \
-    VIRTUAL_ENV=/opt/hermes/.venv uv pip install /opt/hermes/src ddgs && \
+    cd /opt/hermes/src && \
+    UV_PROJECT_ENVIRONMENT=/opt/hermes/.venv uv sync --frozen --no-dev && \
+    VIRTUAL_ENV=/opt/hermes/.venv uv pip install ddgs && \
     rm -rf /opt/hermes/src/.git
 
 # Optionally bake model weights into the image (empty = pull at first boot).
