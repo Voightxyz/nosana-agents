@@ -1,0 +1,16 @@
+{
+  "name": "@voightxyz/nosana-agents",
+  "version": "0.1.0",
+  "description": "Deploy Voight AI agents to Nosana's decentralized GPU network — agent container image, deployment CLI, and job definition templates",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@nosana/kit": "^2.7.4"
+  }
+}
