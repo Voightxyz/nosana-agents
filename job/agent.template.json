@@ -1,0 +1,43 @@
+{
+  "$comment": "Job definition template for one Voight agent on a Nosana GPU. Placeholders ({{...}}) are filled by the deploy engine, which validates the result against the Nosana job schema before posting. Deployments created through the API keep this definition private (never pinned to public IPFS), so per-agent env values are not world-readable; they are still visible to the executing node operator.",
+  "version": "0.1",
+  "type": "container",
+  "meta": {
+    "trigger": "api",
+    "system_requirements": {
+      "required_vram": 8
+    }
+  },
+  "ops": [
+    {
+      "type": "container/run",
+      "id": "agent",
+      "args": {
+        "image": "docker.io/{{IMAGE}}",
+        "gpu": true,
+        "env": {
+          "MODEL": "{{MODEL}}",
+          "API_SERVER_KEY": "{{API_SERVER_KEY}}",
+          "SOUL_B64": "{{SOUL_B64}}",
+          "HERMES_CONFIG_B64": "{{HERMES_CONFIG_B64}}",
+          "VOIGHT_MEMORY_URL": "{{VOIGHT_MEMORY_URL}}",
+          "VOIGHT_AGENT_KEY": "{{VOIGHT_AGENT_KEY}}"
+        },
+        "expose": [
+          {
+            "port": 8642,
+            "health_checks": [
+              {
+                "type": "http",
+                "path": "/health",
+                "method": "GET",
+                "expected_status": 200,
+                "continuous": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
