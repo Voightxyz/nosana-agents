@@ -10,6 +10,9 @@
 //   NOSANA_API_KEY=nos_xxx node scripts/deploy.mjs down   <deploymentId>
 // Notes: credit-paid jobs require a timeout of at least 3600 seconds (60 min),
 // and archiving requires the deployment to have fully reached STOPPED first.
+// `up` accepts --def <file.json> to deploy an arbitrary job definition; the
+// readiness probe tries each exposed port's /health first, then its root.
+import { readFileSync } from 'node:fs';
 import { createNosanaClient, getJobExposedServices } from '@nosana/kit';
 
 const API_KEY = process.env.NOSANA_API_KEY;
@@ -110,9 +113,12 @@ async function up({ def, name, timeout, market }) {
 
   for (const url of urls) {
     await pollUntil(`HTTP 200 at ${url} (end-to-end cold start)`, async () => {
-      const r = await fetch(url, { signal: AbortSignal.timeout(8000) }).catch(() => null);
-      return r && r.ok ? r : null;
-    });
+      for (const probe of [`${url}/health`, url]) {
+        const r = await fetch(probe, { signal: AbortSignal.timeout(8000) }).catch(() => null);
+        if (r && r.ok) return r;
+      }
+      return null;
+    }, { max: 1500000 });
   }
   console.log(`\nTOTAL create→live service: ${secs(t0)}`);
   console.log(`Tear down: node scripts/deploy.mjs down ${dep.id}`);
@@ -134,7 +140,9 @@ switch (cmd) {
     break;
   }
   case 'up': {
-    await up({ def: BASIC_DEF, name: 'voight-agent-demo-web', timeout: flags.timeout ?? 60, market: flags.market });
+    const def = flags.def ? JSON.parse(readFileSync(flags.def, 'utf8')) : BASIC_DEF;
+    const name = flags.name ?? (flags.def ? 'voight-agent-custom' : 'voight-agent-demo-web');
+    await up({ def, name, timeout: flags.timeout ?? 60, market: flags.market });
     break;
   }
   case 'model': {
