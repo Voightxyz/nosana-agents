@@ -6,14 +6,14 @@
 //   2. tool calling emits well-formed tool_calls with parseable JSON arguments,
 //   3. a tool-result follow-up turn produces a grounded final answer.
 // Usage:
-//   node scripts/model-check.mjs --base https://<service-url> [--model qwen3:8b]
+//   node scripts/model-check.mjs --base https://<service-url> [--model llama3.1:8b]
 const flags = {};
 const rest = process.argv.slice(2);
 for (let i = 0; i < rest.length; i++) {
   if (rest[i].startsWith('--')) { flags[rest[i].slice(2)] = rest[i + 1]; i++; }
 }
 const BASE = flags.base?.replace(/\/$/, '');
-const MODEL = flags.model ?? 'qwen3:8b';
+const MODEL = flags.model ?? 'llama3.1:8b';
 if (!BASE) { console.error('Missing --base <service-url>'); process.exit(1); }
 
 const results = [];

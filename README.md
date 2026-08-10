@@ -44,7 +44,7 @@ Built from [`NousResearch/hermes-agent`](https://github.com/NousResearch/hermes-
 ```bash
 docker build -t voight-gpu-agent image/
 # with model weights baked into a layer (skips the pull at boot):
-docker build --build-arg BAKE_MODEL=qwen3:8b -t voight-gpu-agent:qwen3-8b image/
+docker build --build-arg BAKE_MODEL=llama3.1:8b -t voight-gpu-agent:llama3.1-8b image/
 ```
 
 ### Environment contract
@@ -52,7 +52,7 @@ docker build --build-arg BAKE_MODEL=qwen3:8b -t voight-gpu-agent:qwen3-8b image/
 | Variable | Role |
 | --- | --- |
 | `API_SERVER_KEY` | **Required.** Auth for the Hermes gateway: the service URL is public. |
-| `MODEL` | Model tag Ollama serves (default `qwen3:8b`). |
+| `MODEL` | Model tag Ollama serves (default `llama3.1:8b`). |
 | `SOUL_B64` | Agent persona (`SOUL.md`), base64. Decoded to a file, never shell-interpolated. |
 | `HERMES_CONFIG_B64` | Full `config.yaml` override, base64. Omit for the built-in local-model config. |
 | `VOIGHT_MEMORY_URL` | Memory sync endpoint. Unset = sync disabled. |
@@ -83,14 +83,14 @@ node scripts/deploy.mjs status <deploymentId>  # status, jobs, events
 node scripts/deploy.mjs down <deploymentId>    # stop, then archive once STOPPED
 ```
 
-Measured on the NVIDIA 3060 market ($0.048/h): a plain web service goes **create → live HTTPS in ~20s**; Ollama pulling `qwen3:8b` at boot reaches **first completion in ~3 minutes** (~39 tokens/s once warm). Two contract details the CLI already encodes: credit-paid jobs need a timeout of **at least 3600 seconds**, and archiving requires the deployment to have fully reached `STOPPED`.
+Measured on the NVIDIA 3060 market ($0.048/h): a plain web service goes **create → live HTTPS in ~20s**; Ollama pulling `llama3.1:8b` at boot reaches **first completion in ~3 minutes** (~39 tokens/s once warm). Two contract details the CLI already encodes: credit-paid jobs need a timeout of **at least 3600 seconds**, and archiving requires the deployment to have fully reached `STOPPED`.
 
 ## Model readiness
 
 Not every small model can drive an agent. `model-check` validates the three behaviors the runtime depends on, against any OpenAI-compatible endpoint:
 
 ```bash
-node scripts/model-check.mjs --base https://<service-url> --model qwen3:8b
+node scripts/model-check.mjs --base https://<service-url> --model llama3.1:8b
 ```
 
 1. Plain completions return non-empty `content` (reasoning models can starve it),

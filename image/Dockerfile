@@ -58,8 +58,18 @@ ENV HOME=/opt/data \
     API_SERVER_PORT=8642 \
     GATEWAY_ALLOW_ALL_USERS=true \
     HERMES_ALLOW_ROOT_GATEWAY=1 \
-    MODEL=qwen3:8b \
-    PYTHONUNBUFFERED=1
+    MODEL=llama3.1:8b \
+    PYTHONUNBUFFERED=1 \
+    # Hermes refuses any model whose context window is under 64K. Llama 3.1
+    # supports 128K natively, so we serve a 64K window (qwen3 was capped at its
+    # 40,960 trained ceiling and could not satisfy this). The generated config
+    # pins model.context_length to match.
+    OLLAMA_CONTEXT_LENGTH=65536 \
+    # A 64K KV cache on an 8B model is ~8.6GB in f16 — too much beside the
+    # weights on a 12GB card. Flash attention + an 8-bit KV cache roughly halve
+    # it (~4.3GB), so weights + cache fit comfortably on an NVIDIA 3060.
+    OLLAMA_FLASH_ATTENTION=1 \
+    OLLAMA_KV_CACHE_TYPE=q8_0
 
 # Only the agent gateway is exposed; Ollama stays loopback-only.
 EXPOSE 8642

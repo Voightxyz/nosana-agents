@@ -36,6 +36,9 @@ model:
   default: "${MODEL}"
   provider: openai-api
   base_url: http://127.0.0.1:11434/v1
+  # Hermes requires >= 64K context; Ollama is launched with a matching
+  # OLLAMA_CONTEXT_LENGTH so the served window actually backs this value.
+  context_length: 65536
 
 web:
   search_backend: ${SEARCH_BACKEND}

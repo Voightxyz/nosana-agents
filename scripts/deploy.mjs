@@ -5,7 +5,7 @@
 //   NOSANA_API_KEY=nos_xxx node scripts/deploy.mjs balance
 //   NOSANA_API_KEY=nos_xxx node scripts/deploy.mjs markets
 //   NOSANA_API_KEY=nos_xxx node scripts/deploy.mjs up      --market <addr> [--timeout 60]
-//   NOSANA_API_KEY=nos_xxx node scripts/deploy.mjs model   --market <addr> [--timeout 60] [--model qwen3:8b]
+//   NOSANA_API_KEY=nos_xxx node scripts/deploy.mjs model   --market <addr> [--timeout 60] [--model llama3.1:8b]
 //   NOSANA_API_KEY=nos_xxx node scripts/deploy.mjs status <deploymentId>
 //   NOSANA_API_KEY=nos_xxx node scripts/deploy.mjs down   <deploymentId>
 // Notes: credit-paid jobs require a timeout of at least 3600 seconds (60 min),
@@ -146,7 +146,7 @@ switch (cmd) {
     break;
   }
   case 'model': {
-    const model = flags.model ?? 'qwen3:8b';
+    const model = flags.model ?? 'llama3.1:8b';
     const r = await up({ def: modelDef(model), name: 'voight-agent-demo-model', timeout: flags.timeout ?? 60, market: flags.market });
     const base = r.urls[0];
     await pollUntil(`model ${model} answers a completion (pull + load)`, async () => {
