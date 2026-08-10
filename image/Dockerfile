@@ -31,8 +31,14 @@ RUN git clone --depth 1 --branch "${HERMES_REF}" \
       https://github.com/NousResearch/hermes-agent /opt/hermes/src && \
     cd /opt/hermes/src && \
     UV_PROJECT_ENVIRONMENT=/opt/hermes/.venv uv sync --frozen --no-dev && \
-    VIRTUAL_ENV=/opt/hermes/.venv uv pip install ddgs && \
+    VIRTUAL_ENV=/opt/hermes/.venv uv pip install ddgs aiohttp && \
     rm -rf /opt/hermes/src/.git
+
+# aiohttp is REQUIRED, not optional: the Hermes gateway's api_server platform —
+# the HTTP endpoint we expose on :8642 and health-check — refuses to start
+# without it (check_api_server_requirements() gates on aiohttp). uv sync
+# --no-dev omits it, so the gateway would boot with "No messaging platforms
+# enabled" and :8642 would never listen. Installed explicitly above.
 
 # Optionally bake model weights into the image (empty = pull at first boot).
 ARG BAKE_MODEL=""
