@@ -178,9 +178,22 @@ switch (cmd) {
     const dep = await client.api.deployments.get(positional[0]);
     await dep.stop().catch((e) => console.log('stop:', e.message));
     console.log('  ✔ stop sent');
-    await sleep(3000);
-    await dep.archive().catch((e) => console.log('archive:', e.message));
-    console.log('  ✔ archived');
+    // Archive only accepts a fully-STOPPED deployment — poll the REAL state
+    // and report what actually happened (an unconditional success line here
+    // once masked a still-running deployment).
+    let archived = false;
+    for (let i = 0; i < 10; i++) {
+      await sleep(6000);
+      const cur = await client.api.deployments.get(positional[0]);
+      if (cur.status === 'STOPPED') {
+        await cur.archive();
+        archived = true;
+        break;
+      }
+      if (cur.status === 'ARCHIVED') { archived = true; break; }
+    }
+    console.log(archived ? '  ✔ verified STOPPED → archived' : '  ✘ NOT archived — still not STOPPED after 60s, retry later');
+    if (!archived) process.exit(1);
     break;
   }
   default:
