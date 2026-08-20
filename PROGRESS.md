@@ -58,8 +58,21 @@ First user-created GPU agent through the production dashboard, one click, no CLI
 
 The agent answered chat turns from the dashboard within minutes of creation, with inference running locally on its GPU.
 
+## Lifecycle: honest state, wake, hourly renewal (Aug 17-20)
+
+A GPU agent's job ends at its hourly timeout — the platform now treats that as a first-class lifecycle instead of a silent failure:
+
+- **Honest state**: when the job ends, the deployment flips to `STOPPED` on Nosana's side; the platform detects it (a reconciler sweep plus an instant probe when a chat can't reach the gateway) and shows "GPU stopped" instead of a dead "Live" badge.
+- **Wake**: a stopped agent restarts from a dashboard button, or simply by messaging it (web or Telegram) — one guarded transition, so racing wake attempts can never launch two deployments. Scheduled tasks wake their agent too, with a bounded retry while it boots.
+- **Hourly renewal**: an agent that is actively being used no longer dies mid-conversation. The platform extends the *same* on-chain job (+3600s via `POST /jobs/{id}/extend`, which works on SIMPLE-strategy deployments and honors idempotency keys — verified live), so there is no cold start and the job id stays stable. Idle agents die honestly and wake on demand. Renewals respect a per-day hour cap.
+- **Stable URLs**: deployments get a per-deployment domain at create (`endpoints[].url`) that survives job rotation — the engine now uses it as the agent's backend URL, with the per-job hash as fallback.
+- Measured: extend +3600s on a live 3060 job cost $0.044 with an on-chain tx; replaying the same idempotency key returned the same tx with no double charge; early stops refund pro-rata to the second.
+
+## Memory that survives job cycles (Aug 20)
+
+GPU nodes have no persistent volume, so the agent's curated memory previously died with every job. `image/memory-sync.sh` now speaks the platform's per-file protocol (`GET/PUT $VOIGHT_MEMORY_URL/<file>` with base64-JSON bodies, per-agent bearer key): the container restores `MEMORY.md`/`USER.md` at boot and pushes changes periodically and at shutdown, with a per-file checksum gate so unchanged files cost zero requests. Protocol validated against a mock endpoint (restore, push, idempotent re-push, auth rejection) before baking the image.
+
 ## Next
 
-- Hour-block renewal (SIMPLE-EXTEND/INFINITE) so GPU agents outlive a single job window.
 - 3090/4090 markets (visible in the wizard as coming soon).
 - Per-hour billing surfaced to users.
