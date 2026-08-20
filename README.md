@@ -20,7 +20,7 @@ This repository contains the container image and deployment tooling behind [Voig
 ┌─────────────────────────── Nosana GPU job ───────────────────────────┐
 │                                                                      │
 │   Ollama (127.0.0.1:11434)   ◄──  Hermes agent runtime               │
-│   Llama 3.1 8B · 64K ctx          gateway on :8642, the ONLY         │
+│   Hermes 3 8B · 64K ctx          gateway on :8642, the ONLY         │
 │   loopback only                   exposed port, key-protected        │
 │                                                                      │
 │   memory-sync: restore at boot ── push on interval + shutdown        │
@@ -52,25 +52,25 @@ Built from [`NousResearch/hermes-agent`](https://github.com/NousResearch/hermes-
 ```bash
 docker build -t voight-gpu-agent image/
 # with model weights baked into a layer (turns the pull-at-boot into node-local cache):
-docker build --build-arg BAKE_MODEL=llama3.1:8b -t voight-gpu-agent:llama3.1-8b image/
+docker build --build-arg BAKE_MODEL=hermes3:8b -t voight-gpu-agent:hermes3-8b image/
 ```
 
 ### Model
 
-**Llama 3.1 8B** served by Ollama at a **64K context window**. Two sizing choices make that fit a 12GB NVIDIA 3060:
+**Hermes 3 8B** (NousResearch's Llama 3.1 8B fine-tune, trained on the Hermes runtime's function-calling format) served by Ollama at a **64K context window**. Two sizing choices make that fit a 12GB NVIDIA 3060:
 
 | Setting | Why |
 | --- | --- |
-| `OLLAMA_CONTEXT_LENGTH=65536` | The Hermes runtime requires a ≥64K window for reliable tool use; Llama 3.1 supports 128K natively |
+| `OLLAMA_CONTEXT_LENGTH=65536` | The Hermes runtime requires a ≥64K window for reliable tool use; Hermes 3 supports 128K natively |
 | `OLLAMA_FLASH_ATTENTION=1` + `OLLAMA_KV_CACHE_TYPE=q8_0` | A 64K KV cache on an 8B model is ~8.6GB in f16 — an 8-bit cache roughly halves it so weights + cache fit comfortably |
-| Reasoning disabled in the generated config | Llama 3.1 is not a reasoning model; without this the runtime asks the endpoint to "think" and gets a 400 |
+| Reasoning disabled in the generated config | The model is not a reasoning model; without this the runtime asks the endpoint to "think" and gets a 400 |
 
 ### Environment contract
 
 | Variable | Role |
 | --- | --- |
 | `API_SERVER_KEY` | **Required.** Auth for the Hermes gateway — the service URL is publicly reachable. Keys under 16 chars are rejected by the runtime. |
-| `MODEL` | Model tag Ollama serves (default `llama3.1:8b`). |
+| `MODEL` | Model tag Ollama serves (default `hermes3:8b`). |
 | `SOUL_B64` | Agent persona (`SOUL.md`), base64. Decoded to a file, never shell-interpolated. |
 | `HERMES_CONFIG_B64` | Full `config.yaml` override, base64. Omit for the built-in local-model config. |
 | `VOIGHT_MEMORY_URL` | Memory sync endpoint. Unset = sync disabled. |
@@ -140,7 +140,7 @@ node scripts/deploy.mjs down <deploymentId>    # stop, verify STOPPED, then arch
 Not every small model can drive an agent. `model-check` validates the three behaviors the runtime depends on, against any OpenAI-compatible endpoint:
 
 ```bash
-node scripts/model-check.mjs --base https://<service-url> --model llama3.1:8b
+node scripts/model-check.mjs --base https://<service-url> --model hermes3:8b
 ```
 
 1. Plain completions return non-empty `content` (reasoning models can starve it),

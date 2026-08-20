@@ -58,9 +58,9 @@ ENV HOME=/opt/data \
     API_SERVER_PORT=8642 \
     GATEWAY_ALLOW_ALL_USERS=true \
     HERMES_ALLOW_ROOT_GATEWAY=1 \
-    MODEL=llama3.1:8b \
+    MODEL=hermes3:8b \
     PYTHONUNBUFFERED=1 \
-    # Hermes refuses any model whose context window is under 64K. Llama 3.1
+    # Hermes refuses any model whose context window is under 64K. Hermes 3
     # supports 128K natively, so we serve a 64K window (qwen3 was capped at its
     # 40,960 trained ceiling and could not satisfy this). The generated config
     # pins model.context_length to match.

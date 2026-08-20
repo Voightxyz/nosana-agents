@@ -46,7 +46,7 @@ web:
 platform_toolsets:
   api_server: [terminal, file, web, todo, skills, memory]
 
-# Llama 3.1 is not a reasoning model; Hermes would otherwise ask Ollama to
+# The default local model (Llama-family) is not a reasoning model; Hermes would otherwise ask Ollama to
 # "think" and the endpoint 400s ("does not support thinking"). false disables
 # reasoning (emits think:false + reasoning_effort:none to the endpoint).
 agent:
