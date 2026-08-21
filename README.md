@@ -26,8 +26,9 @@ This repository contains the container image and deployment tooling behind [Voig
 │   memory-sync: restore at boot ── push on interval + shutdown        │
 └──────────────────────────────────────────────────────────────────────┘
               ▲                                     │
-        docker.io image              https://<hash>.node.k8s.prd.nos.ci
-        (this repository)             backed by a verifiable on-chain job
+        docker.io image              stable per-deployment domain
+        (this repository)            (survives job rotation), backed by
+                                      a verifiable on-chain job
 ```
 
 ## Why a local model
@@ -44,6 +45,16 @@ Every deployment is also a real Solana account: the job, its GPU market, the exe
 4. Ready means ready: the agent's first chat turn works the moment the platform reports it.
 
 Failure paths tear the deployment down exactly once (queue timeout, error events, unhealthy node), so a failed provision never leaves a billable deployment behind.
+
+## Lifecycle: hourly GPU jobs, honestly
+
+Credit-paid Nosana jobs run in hour blocks. Instead of pretending otherwise, the platform treats the hour as a first-class lifecycle:
+
+- **In use → renewed in place.** An agent with recent activity gets its job extended (+3600s through the deployments API) before the hour lapses: the **same on-chain job id**, the same node, no cold start, mid-conversation. Extensions honor idempotency keys: replaying the same key returns the original on-chain transaction with no double charge (verified live).
+- **Idle → honest stop.** When a job reaches its timeout, the deployment flips `STOPPED` on-chain. The platform detects it (a reconciler sweep plus an instant probe whenever a chat can't reach the gateway) and shows *GPU stopped*, never a dead "Live" badge.
+- **Stopped → wake on demand.** A dashboard button, or simply messaging the agent (web or Telegram), restarts the GPU through one guarded transition: racing wake attempts can never launch two deployments. Scheduled tasks wake their agent too, with a bounded retry while it boots.
+- **Stable addressing.** Every deployment gets a per-deployment domain at create time that survives job rotation and extensions; the per-job derived URL remains as a fallback.
+- **Hourly economics.** Nosana reserves the full hour up front and refunds pro-rata to the second when a job stops early. The tooling and the engine both encode this.
 
 ## The image
 
@@ -100,8 +111,11 @@ All numbers from live runs on the NVIDIA 3060 market ($0.048/h):
 | --- | --- |
 | Create → live HTTPS service (small image) | **~20s** |
 | Create → healthy agent gateway (this image, warm node) | **~77s** |
+| Create → healthy gateway including the 4.7GB model pull (Hermes 3) | **~2 min** |
 | Create → first LLM completion (model pulled at boot) | **~2.5-3 min** |
 | Generation speed once warm | **~39 tokens/s** |
+| Extend a running job +3600s (same job id, no cold start) | **$0.044**, on-chain tx; idempotent replay returns the original tx |
+| Early stop | pro-rata refund to the second |
 
 Contract details the tooling encodes: credit-paid jobs require a timeout of **at least 3600s**; job-level failures surface only in the deployment **events feed** while the deployment status stays `RUNNING`; archive requires a fully-reached `STOPPED`.
 
@@ -114,6 +128,7 @@ First user-created GPU agent through the production dashboard — one click, no 
 | On-chain job | [`56R81gzb…ak8Lu`](https://dashboard.nosana.com/jobs/56R81gzbmSxxxp28CzE8aqWhP7oFjfL7foj9v2pak8Lu) — NVIDIA 3060 market |
 | The agent answering from the GPU | *"I'm a helpful assistant running on the Nosana decentralized GPU network."* — job [`2a2Ndy89…L8Jwr`](https://dashboard.nosana.com/jobs/2a2Ndy89UDC8EdGKUizpEb8B7eAqQCuBGUpsgd4L8Jwr) |
 | Tool use inside the GPU container | The agent executed a terminal command and returned its exact output — job [`EWwYnNWT…VQCqm`](https://dashboard.nosana.com/jobs/EWwYnNWTibyTz1gP3cxUPohunmeyBGCHZWMUWDgVQCqm) |
+| Same-job hourly extend, on-chain | [+3600s transaction](https://solscan.io/tx/26jdPtwTLEWePwAVVE44P3KXirmZgvonXtE72MDiv7dh4brwJ5SXkPKQNQmUweh4AWaxn2L3V82e4YqJ6uFFzWXg) on job [`8Hdnthvd…1LTqq`](https://dashboard.nosana.com/jobs/8HdnthvDzR5m3WWLhduHRdp37UHFFnNx4eF1B8T1LTqq) : replaying its idempotency key returned this same tx |
 | Image digest | [`seenfinity/voight-gpu-agent`](https://hub.docker.com/r/seenfinity/voight-gpu-agent)`@sha256:7730dcb0` |
 
 Full build log with every timing and hardening step: [PROGRESS.md](PROGRESS.md).
