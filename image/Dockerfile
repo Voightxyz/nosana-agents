@@ -69,7 +69,10 @@ ENV HOME=/opt/data \
     # weights on a 12GB card. Flash attention + an 8-bit KV cache roughly halve
     # it (~4.3GB), so weights + cache fit comfortably on an NVIDIA 3060.
     OLLAMA_FLASH_ATTENTION=1 \
-    OLLAMA_KV_CACHE_TYPE=q8_0
+    OLLAMA_KV_CACHE_TYPE=q8_0 \
+    # Boot-time node speed gate (see start.sh): refuse hosts that generate
+    # below this rate, so a degraded GPU never serves an agent. 0 disables.
+    MIN_TOKS_PER_SEC=15
 
 # Only the agent gateway is exposed; Ollama stays loopback-only.
 EXPOSE 8642

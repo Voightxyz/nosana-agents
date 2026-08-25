@@ -87,10 +87,15 @@ docker build --build-arg BAKE_MODEL=hermes3:8b -t voight-gpu-agent:hermes3-8b im
 | `VOIGHT_MEMORY_URL` | Memory sync endpoint. Unset = sync disabled. |
 | `VOIGHT_AGENT_KEY` | Bearer token for the memory endpoint (per-agent, revocable). |
 | `TAVILY_API_KEY` | Optional: switches web search from ddgs to Tavily. |
+| `MIN_TOKS_PER_SEC` | Node speed gate threshold (default `15`; `0` disables). See below. |
 
 ### Boot sequence
 
-`start.sh` runs, in order: restore curated memory (best-effort) → materialize `config.yaml` + `SOUL.md` → start Ollama on loopback → ensure the model is present (a no-op when weights are baked) → start the Hermes gateway on :8642 → periodic memory push, with a final push on shutdown. The first process to exit takes the container down cleanly.
+`start.sh` runs, in order: restore curated memory (best-effort) → materialize `config.yaml` + `SOUL.md` → start Ollama on loopback → ensure the model is present (a no-op when weights are baked) → **node speed gate** → start the Hermes gateway on :8642 → periodic memory push, with a final push on shutdown. The first process to exit takes the container down cleanly.
+
+### Node speed gate
+
+GPU markets contain the occasional bad host — a degraded card, or a node that silently falls back to CPU inference — and an agent generating at 1-3 tok/s is unusable. Before the gateway ever comes up, the boot runs a short timed generation against the local Ollama (48 tokens, using Ollama's own `eval_count`/`eval_duration`, so the number is pure generation rate: prompt processing and model load excluded). Below `MIN_TOKS_PER_SEC` the container logs `[speed-check] FAIL <n> tok/s` and exits with code 86, killing the job before it can serve; the deploy engine detects the early death and re-rolls the deployment onto a fresh node (bounded retries). On a healthy node the probe doubles as a warm-up — the model is left loaded in VRAM, so the first real turn starts faster. `[speed-check] PASS <n> tok/s` in the job logs is the node's measured rate.
 
 ### Memory across job rotations
 

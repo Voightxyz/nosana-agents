@@ -72,6 +72,13 @@ A GPU agent's job ends at its hourly timeout — the platform now treats that as
 
 GPU nodes have no persistent volume, so the agent's curated memory previously died with every job. `image/memory-sync.sh` now speaks the platform's per-file protocol (`GET/PUT $VOIGHT_MEMORY_URL/<file>` with base64-JSON bodies, per-agent bearer key): the container restores `MEMORY.md`/`USER.md` at boot and pushes changes periodically and at shutdown, with a per-file checksum gate so unchanged files cost zero requests. Protocol validated against a mock endpoint (restore, push, idempotent re-push, auth rejection) before baking the image.
 
+## Node speed gate + automatic re-roll (Aug 26)
+
+Live incident: an agent woke onto a market node that generated at a token-drip pace (a degraded host — the same container on a healthy 3060 does ~39 tok/s). Fix, in two halves:
+
+- **In the image** (`start.sh`): after the model pull, a 48-token timed generation against the local Ollama measures the node's true generation rate (`eval_count/eval_duration` — prompt processing and load excluded). Below `MIN_TOKS_PER_SEC` (default 15, env-tunable, `0` disables) the boot logs `[speed-check] FAIL <n> tok/s — refusing this node` and exits 86 before the gateway ever comes up. On a pass, the probe doubles as a VRAM warm-up, so first turns start faster than before. Both paths verified inside the built image (FAIL: measured 5.5 tok/s vs a high threshold → exit 86 propagated as the container's exit code; PASS: `PASS 3.1 tok/s (min 1)` → boot continued).
+- **In the deploy engine**: the boot health-wait now also watches the deployment status and treats an early death as "this node's problem" — it tears the deployment down and re-rolls a fresh one (which re-enters the market and lands on a different host in practice), with bounded retries before failing honestly. Queue congestion, credit exhaustion and API rejections stay fatal — a re-roll can't fix those, so it isn't attempted.
+
 ## Next
 
 - 3090/4090 markets (visible in the wizard as coming soon).

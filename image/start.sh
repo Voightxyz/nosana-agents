@@ -10,6 +10,7 @@
 #   VOIGHT_MEMORY_URL  memory sync endpoint (see memory-sync)
 #   VOIGHT_AGENT_KEY   bearer token for the memory endpoint
 #   MEMORY_SYNC_INTERVAL  seconds between periodic pushes (default: 120)
+#   MIN_TOKS_PER_SEC   node speed gate threshold (default: 15; 0 disables)
 set -u
 
 export HOME=/opt/data HERMES_HOME=/opt/data
@@ -83,6 +84,42 @@ done
 
 # Ensure the model is present — a no-op when weights are baked into the image.
 ollama pull "${MODEL}" || echo "[boot] pull failed — relying on baked weights"
+
+# 3.5 Node speed gate. GPU markets contain the occasional bad host (degraded
+# card, CPU fallback) and an agent generating at 1-3 tok/s is unusable — better
+# to refuse the node here, before the gateway ever comes up, and let the
+# platform re-roll the deployment onto a fresh one. The probe uses Ollama's own
+# eval_count/eval_duration (pure generation rate — prompt processing and model
+# load excluded) and doubles as a warm-up: the model is left loaded in VRAM, so
+# the first real turn starts faster than it used to.
+MIN_TOKS_PER_SEC="${MIN_TOKS_PER_SEC:-15}"
+if [ "${MIN_TOKS_PER_SEC}" != "0" ]; then
+  PY="/opt/hermes/.venv/bin/python"
+  command -v "$PY" >/dev/null 2>&1 || PY="$(command -v python3)"
+  tokps=""
+  for attempt in 1 2; do
+    resp=$(curl -sf --max-time 240 http://127.0.0.1:11434/api/generate \
+      -d "{\"model\":\"${MODEL}\",\"prompt\":\"Count from 1 to 30, digits separated by spaces.\",\"stream\":false,\"options\":{\"num_predict\":48}}") || resp=""
+    tokps=$(printf '%s' "$resp" | "$PY" -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+    print(round(d["eval_count"] / (d["eval_duration"] / 1e9), 1))
+except Exception:
+    pass')
+    [ -n "$tokps" ] && break
+    echo "[speed-check] probe attempt ${attempt} failed — retrying"
+  done
+  if [ -z "$tokps" ]; then
+    echo "[speed-check] FATAL: node could not complete a 48-token generation" >&2
+    exit 86
+  fi
+  if "$PY" -c "import sys; sys.exit(0 if float('${tokps}') >= float('${MIN_TOKS_PER_SEC}') else 1)"; then
+    echo "[speed-check] PASS ${tokps} tok/s (min ${MIN_TOKS_PER_SEC})"
+  else
+    echo "[speed-check] FAIL ${tokps} tok/s < ${MIN_TOKS_PER_SEC} — refusing this node" >&2
+    exit 86
+  fi
+fi
 
 # 4. Agent gateway (the exposed service).
 /opt/hermes/.venv/bin/hermes gateway run --no-supervise &
