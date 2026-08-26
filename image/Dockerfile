@@ -26,7 +26,12 @@ RUN apt-get update && \
 # Hermes runtime in its own venv. Its build backend rejects a plain
 # `pip install .` — `uv sync` against the upstream lockfile is the supported
 # (and reproducible) path; the editable install needs the source kept around.
-ARG HERMES_REF=main
+#
+# PINNED to a released upstream tag, never `main`: an unrelated image rebuild
+# once dragged in three days of upstream framework changes and visibly changed
+# deployed agents' behavior. Upgrading the framework is now a deliberate,
+# tested bump of this ref (v2026.8.18 == hermes-agent 0.20.4).
+ARG HERMES_REF=v2026.8.18
 RUN git clone --depth 1 --branch "${HERMES_REF}" \
       https://github.com/NousResearch/hermes-agent /opt/hermes/src && \
     cd /opt/hermes/src && \

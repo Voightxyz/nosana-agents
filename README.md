@@ -58,7 +58,7 @@ Credit-paid Nosana jobs run in hour blocks. Instead of pretending otherwise, the
 
 ## The image
 
-Built from [`NousResearch/hermes-agent`](https://github.com/NousResearch/hermes-agent) (MIT) on top of `ollama/ollama`, installed with `uv sync` against the upstream lockfile for reproducible builds.
+Built from [`NousResearch/hermes-agent`](https://github.com/NousResearch/hermes-agent) (MIT) on top of `ollama/ollama`, installed with `uv sync` against the upstream lockfile for reproducible builds. The framework is **pinned to a released upstream tag** (`HERMES_REF`, currently `v2026.8.18` = hermes-agent 0.20.4) — never `main`: an unrelated rebuild once dragged in days of upstream changes and visibly altered deployed agents' behavior. Framework upgrades are a deliberate bump of that ref.
 
 ```bash
 docker build -t voight-gpu-agent image/

@@ -79,6 +79,10 @@ Live incident: an agent woke onto a market node that generated at a token-drip p
 - **In the image** (`start.sh`): after the model pull, a 48-token timed generation against the local Ollama measures the node's true generation rate (`eval_count/eval_duration` — prompt processing and load excluded). Below `MIN_TOKS_PER_SEC` (default 15, env-tunable, `0` disables) the boot logs `[speed-check] FAIL <n> tok/s — refusing this node` and exits 86 before the gateway ever comes up. On a pass, the probe doubles as a VRAM warm-up, so first turns start faster than before. Both paths verified inside the built image (FAIL: measured 5.5 tok/s vs a high threshold → exit 86 propagated as the container's exit code; PASS: `PASS 3.1 tok/s (min 1)` → boot continued).
 - **In the deploy engine**: the boot health-wait now also watches the deployment status and treats an early death as "this node's problem" — it tears the deployment down and re-rolls a fresh one (which re-enters the market and lands on a different host in practice), with bounded retries before failing honestly. Queue congestion, credit exhaustion and API rejections stay fatal — a re-roll can't fix those, so it isn't attempted.
 
+## Pin the framework (Aug 26)
+
+The speed-gate rebuild surfaced a supply-chain footgun: the image installed hermes-agent from upstream `main`, so the rebuild silently jumped the framework from 0.20.4 to 0.20.5 (hundreds of upstream commits, several touching system-prompt composition) and deployed agents' conversational behavior visibly changed. `HERMES_REF` now defaults to a released upstream tag (`v2026.8.18` = 0.20.4, verified by booting the rebuilt image and reading the gateway's `/health` version). Framework upgrades are a deliberate, tested bump of that ref from now on.
+
 ## Next
 
 - 3090/4090 markets (visible in the wizard as coming soon).
