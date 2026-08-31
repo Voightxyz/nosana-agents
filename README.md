@@ -149,6 +149,9 @@ the upstream image pinned by digest (release 0.8.4), and static runtime config
 is baked as env — per-agent values (paired-token hash, persona, model) arrive
 via the job definition. No memory-sync in v1: ZeroClaw state is SQLite and the
 platform's chat adapter carries conversation continuity across job cycles.
+Default model: `qwen2.5:7b-instruct` — under ZeroClaw's long system prompt it
+held identity and drove the text-parsed tool loop where hermes3:8b lost both
+(live A/B on a 3060 market node); override via the `MODEL` env.
 
 ## Deploy CLI
 
