@@ -93,6 +93,21 @@ speed gate (rewritten in grep/awk — this image carries no Python), and no
 inference key inside the container. Validated locally end to end: gate PASS,
 pairing active, streamed turns over the gateway WebSocket with exact usage.
 
+## Speed gate v2: measure warm, not cold (both images)
+
+Live debugging on a real market node showed the boot speed gate was measuring
+the model's very first generation after load — which also pays CUDA graph
+compilation and the card's clock ramp. A healthy 3060 measured 2.5 tok/s on
+that cold pass and 33 tok/s one generation later, so the gate was refusing
+perfectly good hosts and exhausting the platform's node re-rolls.
+
+Both images (Hermes and ZeroClaw variants) now run a short discarded warm-up
+generation first, then measure, and retry the measurement up to three times
+if the rate is still below threshold while the card ramps. The Ollama base is
+now pinned by digest in both Dockerfiles (0.33.2, GPU path verified live on a
+market node): a floating `:latest` base had silently changed the runtime under
+the fleet on a rebuild. Images are pushed as plain single-arch manifests.
+
 ## Next
 
 - 3090/4090 markets (visible in the wizard as coming soon).

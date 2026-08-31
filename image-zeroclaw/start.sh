@@ -49,17 +49,26 @@ ollama pull "${MODEL}" || echo "[boot] pull failed — relying on baked weights"
 # image — parsed with grep/awk.
 MIN_TOKS_PER_SEC="${MIN_TOKS_PER_SEC:-15}"
 if [ "${MIN_TOKS_PER_SEC}" != "0" ]; then
+  # Warm-up pass, DISCARDED: the very first generation after a model load also
+  # pays CUDA graph compilation and the card's clock ramp — a healthy GPU
+  # measures a fraction of its real rate on that pass (verified live: 2.5 tok/s
+  # cold vs 33 tok/s warm on the same card). Only warm generation is measured;
+  # measuring the cold pass refuses perfectly good nodes.
+  curl -sf --max-time 300 http://127.0.0.1:11434/api/generate \
+    -d "{\"model\":\"${MODEL}\",\"prompt\":\"Say OK.\",\"stream\":false,\"options\":{\"num_predict\":16}}" >/dev/null 2>&1 || true
   tokps=""
-  for attempt in 1 2; do
+  for attempt in 1 2 3; do
     resp=$(curl -sf --max-time 240 http://127.0.0.1:11434/api/generate \
       -d "{\"model\":\"${MODEL}\",\"prompt\":\"Count from 1 to 30, digits separated by spaces.\",\"stream\":false,\"options\":{\"num_predict\":48}}") || resp=""
     count=$(printf '%s' "$resp" | grep -o '"eval_count":[0-9]*' | head -1 | cut -d: -f2)
     dur=$(printf '%s' "$resp" | grep -o '"eval_duration":[0-9]*' | head -1 | cut -d: -f2)
     if [ -n "${count:-}" ] && [ -n "${dur:-}" ] && [ "$dur" -gt 0 ]; then
       tokps=$(awk "BEGIN{printf \"%.1f\", ${count} / (${dur} / 1000000000)}")
-      break
+      awk "BEGIN{exit !(${tokps} >= ${MIN_TOKS_PER_SEC})}" && break
+      echo "[speed-check] attempt ${attempt}: ${tokps} tok/s below ${MIN_TOKS_PER_SEC} — retrying (card may still be ramping)"
+    else
+      echo "[speed-check] probe attempt ${attempt} failed — retrying"
     fi
-    echo "[speed-check] probe attempt ${attempt} failed — retrying"
   done
   if [ -z "$tokps" ]; then
     echo "[speed-check] FATAL: node could not complete a 48-token generation" >&2

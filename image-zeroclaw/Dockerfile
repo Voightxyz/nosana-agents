@@ -15,7 +15,9 @@
 
 FROM ghcr.io/zeroclaw-labs/zeroclaw:debian@sha256:d2b3ac2e6b6dd3b0d977b3722fea8bc5ba414c2d5c34d48fe42838aac217afa5 AS zeroclaw
 
-FROM ollama/ollama:latest
+# Ollama base PINNED BY DIGEST (0.33.2, GPU path verified live on a market node)
+# — a floating :latest here silently changed the runtime under the fleet once.
+FROM ollama/ollama@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2
 
 COPY --from=zeroclaw /usr/local/bin/zeroclaw /usr/local/bin/zeroclaw
 
@@ -30,7 +32,7 @@ RUN chmod +x /start.sh && mkdir -p /zeroclaw-data
 # env (the contract validated live on Cloud Run); per-agent values
 # (paired token hash, SOUL_B64, MODEL override) arrive via the job definition.
 ENV HOME=/zeroclaw-data \
-    MODEL=hermes3:8b \
+    MODEL=qwen2.5:7b-instruct \
     # Boot-time node speed gate (see start.sh): refuse hosts that generate
     # below this rate, so a degraded GPU never serves an agent. 0 disables.
     MIN_TOKS_PER_SEC=15 \

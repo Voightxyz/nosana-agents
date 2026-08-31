@@ -13,7 +13,9 @@
 # A baked model turns the ~3 min pull-at-boot into node-local Docker layer
 # cache: every restart on a warm node skips the download entirely.
 
-FROM ollama/ollama:latest
+# Ollama base PINNED BY DIGEST (0.33.2, GPU path verified live on a market node)
+# — a floating :latest here silently changed the runtime under the fleet once.
+FROM ollama/ollama@sha256:020e4134285e2ef4d8fd801234176de3b4faadc992a3eb06c8e66a2f9d4c4ba2
 
 # uv manages its own CPython (Hermes needs >=3.11); the Ollama base stays as-is.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
