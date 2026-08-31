@@ -138,6 +138,18 @@ First user-created GPU agent through the production dashboard — one click, no 
 
 Full build log with every timing and hardening step: [PROGRESS.md](PROGRESS.md).
 
+## ZeroClaw variant
+
+`image-zeroclaw/` builds the same one-container-one-agent shape around the
+**ZeroClaw** runtime (github.com/zeroclaw-labs/zeroclaw, Rust): Ollama serving a
+local model on loopback, the ZeroClaw gateway on :8642 (same platform contract:
+health-checked expose, pre-seeded bearer auth, boot speed gate), and zero
+inference credentials inside the container. The ZeroClaw binary is copied from
+the upstream image pinned by digest (release 0.8.4), and static runtime config
+is baked as env — per-agent values (paired-token hash, persona, model) arrive
+via the job definition. No memory-sync in v1: ZeroClaw state is SQLite and the
+platform's chat adapter carries conversation continuity across job cycles.
+
 ## Deploy CLI
 
 Standalone tooling over the Nosana deployments API — the same lifecycle the platform engine drives, usable against any job definition:

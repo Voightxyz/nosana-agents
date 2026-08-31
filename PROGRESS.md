@@ -83,6 +83,16 @@ Live incident: an agent woke onto a market node that generated at a token-drip p
 
 The speed-gate rebuild surfaced a supply-chain footgun: the image installed hermes-agent from upstream `main`, so the rebuild silently jumped the framework from 0.20.4 to 0.20.5 (hundreds of upstream commits, several touching system-prompt composition) and deployed agents' conversational behavior visibly changed. `HERMES_REF` now defaults to a released upstream tag (`v2026.8.18` = 0.20.4, verified by booting the rebuilt image and reading the gateway's `/health` version). Framework upgrades are a deliberate, tested bump of that ref from now on.
 
+## ZeroClaw GPU variant (Aug 31)
+
+A second framework joins the GPU fleet: `image-zeroclaw/` packages the ZeroClaw
+runtime (Rust, ~30MB binary copied from the digest-pinned upstream image) next
+to Ollama, keeping every platform contract identical — :8642 gateway with
+health-checked expose, pre-seeded bearer auth (pairing forced on), the boot
+speed gate (rewritten in grep/awk — this image carries no Python), and no
+inference key inside the container. Validated locally end to end: gate PASS,
+pairing active, streamed turns over the gateway WebSocket with exact usage.
+
 ## Next
 
 - 3090/4090 markets (visible in the wizard as coming soon).
