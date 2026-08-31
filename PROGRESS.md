@@ -108,7 +108,13 @@ now pinned by digest in both Dockerfiles (0.33.2, GPU path verified live on a
 market node): a floating `:latest` base had silently changed the runtime under
 the fleet on a rebuild. Images are pushed as plain single-arch manifests.
 
+## GPU market catalog: 3090 and 4090 (shipped)
+
+The platform now offers three markets — NVIDIA 3060, 3090, and 4090 — with
+per-market pricing and live availability read straight from each market's
+on-chain queue account (queue type + length decoded over public RPC, cached
+briefly). The deploy wizard shows real "N available now" counts per market.
+
 ## Next
 
-- 3090/4090 markets (visible in the wizard as coming soon).
 - Per-hour billing surfaced to users.
